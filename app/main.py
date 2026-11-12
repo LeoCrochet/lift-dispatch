@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from sqladmin import Admin
-
 from app.db.session import engine
 from app.admin.views import UserAdmin, ElevatorAdmin, RequestAdmin
 from app.api.requests import router as requests_router
