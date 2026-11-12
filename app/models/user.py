@@ -10,3 +10,6 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(20))
     role: Mapped[str] = mapped_column(String(20))
     telegram_id: Mapped[str | None] = mapped_column(String(50), unique=True)
+
+    def __str__(self):
+        return f"{self.full_name} ({self.role})"

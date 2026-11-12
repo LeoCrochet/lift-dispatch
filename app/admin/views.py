@@ -11,3 +11,12 @@ class ElevatorAdmin(ModelView, model=Elevator):
 
 class RequestAdmin(ModelView, model=Request):
     column_list = [Request.id, Request.elevator_id, Request.type, Request.status, Request.created_at]
+    # поля формы для редактирования
+    form_columns = [
+        Request.elevator_id, 
+        Request.type, 
+        Request.status, 
+        Request.description, 
+        Request.assignee,
+        Request.resolved_at
+    ]

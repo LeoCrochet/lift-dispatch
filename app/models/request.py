@@ -1,8 +1,8 @@
 from datetime import datetime
 from sqlalchemy import String, ForeignKey, DateTime, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
-
+from app.models.user import User 
 class Request(Base):
     __tablename__ = "requests"
 
@@ -14,6 +14,7 @@ class Request(Base):
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    assignee = relationship("User", foreign_keys=[assignee_id])
 
 class RequestEvent(Base):
     __tablename__ = "request_events"
