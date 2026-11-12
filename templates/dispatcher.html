@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Панель диспетчера</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; background-color: #f8f9fa; }
+        .card { margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Диспетчеризация лифтов</h1>
+        
+        <div class="row">
+            <!-- Форма создания заявки -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">Создать новую заявку</div>
+                    <div class="card-body">
+                        <form id="createForm">
+                            <div class="mb-3">
+                                <label class="form-label">Лифт</label>
+                                <select id="elevator_id" class="form-select" required></select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Тип заявки</label>
+                                <select id="type" class="form-select">
+                                    <option value="emergency">🚨 Авария (люди в кабине)</option>
+                                    <option value="fault">🔧 Неисправность</option>
+                                    <option value="maintenance">⚙️ Регламентное ТО</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Описание</label>
+                                <textarea id="description" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Назначить механика</label>
+                                <select id="assignee_id" class="form-select">
+                                    <option value="">-- Не назначен --</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Создать заявку</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Список заявок -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">Активные заявки</div>
+                    <div class="card-body" id="requestsList">
+                        <p>Загрузка...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Загружаем справочники (лифты и механиков) при старте
+        fetch('/requests/dictionaries')
+            .then(res => res.json())
+            .then(data => {
+                const elSelect = document.getElementById('elevator_id');
+                data.elevators.forEach(e => {
+                    elSelect.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+                });
+
+                const mechSelect = document.getElementById('assignee_id');
+                data.mechanics.forEach(m => {
+                    mechSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+                });
+            });
+
+        // Обработка отправки формы
+        document.getElementById('createForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                elevator_id: parseInt(document.getElementById('elevator_id').value),
+                type: document.getElementById('type').value,
+                description: document.getElementById('description').value
+            };
+            const assignee_id = document.getElementById('assignee_id').value;
+
+            // 1. Создаем заявку
+            const res = await fetch('/requests/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            if (res.ok) {
+                const newReq = await res.json();
+                
+                // 2. Если выбран механик — назначаем его
+                if (assignee_id) {
+                    // Нам нужен эндпоинт для обновления assignee_id, 
+                    // но пока для простоты используем PATCH статуса и добавляем assignee
+                    // (В будущем сделаем отдельный роут)
+                    await fetch(`/requests/${newReq.id}/assign/${assignee_id}`, { method: 'PATCH' });
+                }
+                
+                alert('Заявка создана!');
+                document.getElementById('createForm').reset();
+                loadRequests(); // Обновляем список
+            } else {
+                alert('Ошибка при создании');
+            }
+        });
+
+        // Функция загрузки активных заявок
+        async function loadRequests() {
+            const res = await fetch('/requests/active');
+            const requests = await res.json();
+            const container = document.getElementById('requestsList');
+            
+            if (requests.length === 0) {
+                container.innerHTML = '<p>Нет активных заявок.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            requests.forEach(r => {
+                const badgeColor = r.type === 'emergency' ? 'danger' : r.type === 'fault' ? 'warning' : 'info';
+                const statusText = r.status === 'new' ? 'Новая' : r.status;
+                
+                container.innerHTML += `
+                    <div class="border-bottom pb-2 mb-2">
+                        <strong>#${r.id}</strong> 
+                        <span class="badge bg-${badgeColor}">${r.type}</span>
+                        <span class="badge bg-secondary">${statusText}</span>
+                        <br>
+                        <small>Лифт ID: ${r.elevator_id} | Механик ID: ${r.assignee_id || 'Не назначен'}</small>
+                        <p class="mb-1">${r.description || ''}</p>
+                    </div>
+                `;
+            });
+        }
+
+        // Загружаем заявки сразу при открытии
+        loadRequests();
+        // И обновляем каждые 10 секунд
+        setInterval(loadRequests, 10000);
+    </script>
+</body>
+</html>
